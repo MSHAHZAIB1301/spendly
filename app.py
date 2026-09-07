@@ -177,6 +177,7 @@ def register():
 
         session['user_id'] = user_id
         session['user_name'] = name
+        session.permanent = True  # Session lasts across browser restarts
         flash("Account created successfully!", "success")
         return redirect(url_for('dashboard'))
 
@@ -197,6 +198,7 @@ def login():
 
         session['user_id'] = user['id']
         session['user_name'] = user['name']
+        session.permanent = True  # Session lasts across browser restarts
         flash("Welcome back!", "success")
         return redirect(url_for('dashboard'))
 
