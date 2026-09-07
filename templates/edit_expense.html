@@ -2,20 +2,15 @@
 
 {% block title %}Edit Expense — Spendly{% endblock %}
 
-{% block content %}
-<nav class="navbar">
-    <div class="nav-inner">
-        <a href="{{ url_for('landing') }}" class="nav-brand">
-            <span class="brand-icon">◈</span>
-            <span class="brand-name">Spendly</span>
-        </a>
-        <div class="nav-links">
-            <a href="{{ url_for('dashboard') }}">Dashboard</a>
-            <a href="{{ url_for('logout') }}">Logout</a>
-        </div>
-    </div>
-</nav>
+{% block nav_content %}
+<div class="nav-user-info">
+    <span>Hello, {{ session.get('user_name', 'User') }}</span>
+    <a href="{{ url_for('dashboard') }}">Dashboard</a>
+    <a href="{{ url_for('logout') }}" class="nav-logout">Logout</a>
+</div>
+{% endblock %}
 
+{% block content %}
 <div class="expense-form-container">
     <h1>Edit Expense</h1>
 
