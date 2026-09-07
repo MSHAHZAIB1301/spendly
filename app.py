@@ -8,7 +8,7 @@ from email.mime.multipart import MIMEMultipart
 from datetime import datetime
 
 # Import database functions
-from database.db import get_db, init_db
+from database.db import get_db, init_db, is_postgres_available
 
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(32)
@@ -66,12 +66,20 @@ def create_user(name, email, password):
     conn = get_db()
     cursor = conn.cursor()
     try:
-        cursor.execute(
-            "INSERT INTO users (name, email, password_hash) VALUES (%s, %s, %s)",
-            (name, email, hash_password(password))
-        )
+        # Use RETURNING id for PostgreSQL to get the inserted user id
+        if is_postgres_available():
+            cursor.execute(
+                "INSERT INTO users (name, email, password_hash) VALUES (%s, %s, %s) RETURNING id",
+                (name, email, hash_password(password))
+            )
+            user_id = cursor.fetchone()['id']
+        else:
+            cursor.execute(
+                "INSERT INTO users (name, email, password_hash) VALUES (%s, %s, %s)",
+                (name, email, hash_password(password))
+            )
+            user_id = cursor.lastrowid
         conn.commit()
-        user_id = cursor.lastrowid
         conn.close()
         return user_id
     except Exception:
@@ -156,28 +164,36 @@ def dashboard():
     conn = get_db()
     cursor = conn.cursor()
 
+    # Build date filter based on database type
+    if is_postgres_available():
+        # PostgreSQL syntax
+        date_filter = "TO_CHAR(date, 'YYYY-MM') = TO_CHAR(CURRENT_DATE, 'YYYY-MM')"
+    else:
+        # SQLite syntax
+        date_filter = "strftime('%Y-%m', date) = strftime('%Y-%m', 'now')"
+
     # Get expenses for current month
-    cursor.execute("""
+    cursor.execute(f"""
         SELECT * FROM expenses
-        WHERE user_id = %s AND strftime('%%Y-%%m', date) = strftime('%%Y-%%m', 'now')
+        WHERE user_id = %s AND {date_filter}
         ORDER BY date DESC
     """, (session['user_id'],))
     expenses = [dict(row) for row in cursor.fetchall()]
 
     # Get category totals
-    cursor.execute("""
+    cursor.execute(f"""
         SELECT category, SUM(amount) as total
         FROM expenses
-        WHERE user_id = %s AND strftime('%%Y-%%m', date) = strftime('%%Y-%%m', 'now')
+        WHERE user_id = %s AND {date_filter}
         GROUP BY category
     """, (session['user_id'],))
     categories = [dict(row) for row in cursor.fetchall()]
 
     # Total this month
-    cursor.execute("""
+    cursor.execute(f"""
         SELECT SUM(amount) as total
         FROM expenses
-        WHERE user_id = %s AND strftime('%%Y-%%m', date) = strftime('%%Y-%%m', 'now')
+        WHERE user_id = %s AND {date_filter}
     """, (session['user_id'],))
     total = cursor.fetchone()['total'] or 0
 
