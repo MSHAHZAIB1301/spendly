@@ -5,12 +5,14 @@
 {% block nav_content %}
 <div class="nav-user-info">
     <span>Hello, {{ user_name }}</span>
+    <a href="{{ url_for('landing') }}">🏠 Home</a>
     <a href="{{ url_for('profile') }}">Profile</a>
     <a href="{{ url_for('logout') }}" class="nav-logout">Logout</a>
 </div>
 {% endblock %}
 
 {% block mobile_nav %}
+<a href="{{ url_for('landing') }}">🏠 Home</a>
 <a href="{{ url_for('profile') }}">Profile</a>
 <a href="{{ url_for('logout') }}">Logout</a>
 {% endblock %}
