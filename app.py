@@ -14,8 +14,14 @@ from database.db import get_db, init_db, is_postgres_available
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(32)
 
-# Session configuration - browser session only (expires when browser closes)
-# Default Flask sessions are already browser-session based
+# Session configuration - signed cookies (stored in browser, not server)
+app.config['SESSION_TYPE'] = 'cookie'
+app.config['SESSION_PERMANENT'] = True
+app.config['PERMANENT_SESSION_LIFETIME'] = 86400 * 7  # 7 days
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+# Only set SECURE=True if using HTTPS
+app.config['SESSION_COOKIE_SECURE'] = os.environ.get('HTTPS', 'false').lower() == 'true'
 
 # ------------------------------------------------------------------ #
 # Email Configuration                                                  #

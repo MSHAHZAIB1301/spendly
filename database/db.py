@@ -73,6 +73,16 @@ def init_db():
                 )
             """)
 
+            # Sessions table for persistent sessions
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS sessions (
+                    id SERIAL PRIMARY KEY,
+                    session_id TEXT UNIQUE NOT NULL,
+                    data TEXT,
+                    expiry TIMESTAMP
+                )
+            """)
+
             conn.commit()
             cursor.close()
             conn.close()
@@ -104,6 +114,16 @@ def init_db():
             date TEXT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+    """)
+
+    # Sessions table for SQLite
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT UNIQUE NOT NULL,
+            data TEXT,
+            expiry TIMESTAMP
         )
     """)
 
