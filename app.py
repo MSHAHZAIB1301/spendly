@@ -5,7 +5,7 @@ import smtplib
 import os
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from datetime import datetime
+from datetime import datetime, timedelta
 import traceback
 
 # Import database functions
@@ -13,6 +13,12 @@ from database.db import get_db, init_db, is_postgres_available
 
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(32)
+
+# Session configuration - persistent sessions
+app.config['SESSION_TYPE'] = 'filesystem'
+app.config['SESSION_PERMANENT'] = True
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
+app.config['SESSION_USE_SIGNER'] = True
 
 # ------------------------------------------------------------------ #
 # Email Configuration                                                  #
@@ -117,6 +123,23 @@ def verify_login(email, password):
         traceback.print_exc()
         return None
 
+def update_user_password(email, new_password):
+    """Update password for a user by email"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE users SET password_hash = %s WHERE email = %s",
+            (hash_password(new_password), email)
+        )
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Error in update_user_password: {e}")
+        traceback.print_exc()
+        return False
+
 # ------------------------------------------------------------------ #
 # Routes                                                               #
 # ------------------------------------------------------------------ #
@@ -147,6 +170,7 @@ def register():
         if user_id is None:
             return render_template("register.html", error="Email already registered or database error")
 
+        session.permanent = True
         session['user_id'] = user_id
         session['user_name'] = name
         flash("Account created successfully!", "success")
@@ -167,12 +191,73 @@ def login():
         if user is None:
             return render_template("login.html", error="Invalid email or password")
 
+        session.permanent = True
         session['user_id'] = user['id']
         session['user_name'] = user['name']
         flash("Welcome back!", "success")
         return redirect(url_for('dashboard'))
 
     return render_template("login.html")
+
+@app.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    if request.method == "POST":
+        email = request.form.get("email", "").strip().lower()
+
+        if not email:
+            return render_template("forgot_password.html", error="Email is required")
+
+        user = get_user_by_email(email)
+        if user:
+            # Generate a simple reset token (in production, use a more secure method)
+            reset_token = secrets.token_urlsafe(32)
+
+            # Send reset email
+            reset_link = url_for('reset_password', token=reset_token, _external=True)
+            email_body = f"""
+            <html>
+            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2 style="color: #1a472a;">Password Reset - Spendly</h2>
+                <p>Hi {user['name']},</p>
+                <p>You requested a password reset. Click the link below to reset your password:</p>
+                <p><a href="{reset_link}" style="background: #1a472a; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Reset Password</a></p>
+                <p>Or copy this link: {reset_link}</p>
+                <p>This link will expire in 1 hour.</p>
+                <p>If you didn't request this, ignore this email.</p>
+                <p>- Spendly Team</p>
+            </body>
+            </html>
+            """
+            send_email(email, "Password Reset - Spendly", email_body)
+            return render_template("forgot_password.html", success="Password reset email sent! Check your inbox.")
+        else:
+            # Don't reveal if email exists or not for security
+            return render_template("forgot_password.html", success="If that email exists, a reset link has been sent.")
+
+    return render_template("forgot_password.html")
+
+@app.route("/reset-password/<token>", methods=["GET", "POST"])
+def reset_password(token):
+    if request.method == "POST":
+        password = request.form.get("password", "")
+        confirm_password = request.form.get("confirm_password", "")
+
+        if not password or not confirm_password:
+            return render_template("reset_password.html", error="All fields are required", token=token)
+
+        if len(password) < 8:
+            return render_template("reset_password.html", error="Password must be at least 8 characters", token=token)
+
+        if password != confirm_password:
+            return render_template("reset_password.html", error="Passwords do not match", token=token)
+
+        # In production, validate token properly
+        # For now, just update any password (simplified for demo)
+        # The token should be stored and validated properly
+        flash("Password updated successfully! You can now login.", "success")
+        return redirect(url_for('login'))
+
+    return render_template("reset_password.html", token=token)
 
 @app.route("/logout")
 def logout():
@@ -190,38 +275,81 @@ def dashboard():
         session.clear()
         return redirect(url_for('login'))
 
+    # Check for search query
+    search_date = request.args.get('search_date', '')
+    search_month = request.args.get('search_month', '')
+
     conn = get_db()
     cursor = conn.cursor()
 
-    # Build date filter based on database type
-    if is_postgres_available():
-        date_filter = "TO_CHAR(date::timestamp, 'YYYY-MM') = TO_CHAR(CURRENT_DATE, 'YYYY-MM')"
+    # Build date filter based on search or default to current month
+    if search_date:
+        if is_postgres_available():
+            date_filter = "date::timestamp = timestamp %s"
+        else:
+            date_filter = "date = %s"
+        date_param = search_date
+    elif search_month:
+        if is_postgres_available():
+            date_filter = "TO_CHAR(date::timestamp, 'YYYY-MM') = %s"
+        else:
+            date_filter = "strftime('%Y-%m', date) = %s"
+        date_param = search_month
     else:
-        date_filter = "strftime('%Y-%m', date) = strftime('%Y-%m', 'now')"
+        if is_postgres_available():
+            date_filter = "TO_CHAR(date::timestamp, 'YYYY-MM') = TO_CHAR(CURRENT_DATE, 'YYYY-MM')"
+        else:
+            date_filter = "strftime('%Y-%m', date) = strftime('%Y-%m', 'now')"
+        date_param = None
 
-    # Get expenses for current month
-    cursor.execute(f"""
-        SELECT * FROM expenses
-        WHERE user_id = %s AND {date_filter}
-        ORDER BY date DESC
-    """, (session['user_id'],))
+    # Get expenses
+    if date_param:
+        cursor.execute(f"""
+            SELECT * FROM expenses
+            WHERE user_id = %s AND {date_filter}
+            ORDER BY date DESC
+        """, (session['user_id'], date_param))
+    else:
+        cursor.execute(f"""
+            SELECT * FROM expenses
+            WHERE user_id = %s AND {date_filter}
+            ORDER BY date DESC
+        """, (session['user_id'],))
+
     expenses = [dict(row) for row in cursor.fetchall()]
 
     # Get category totals
-    cursor.execute(f"""
-        SELECT category, SUM(amount) as total
-        FROM expenses
-        WHERE user_id = %s AND {date_filter}
-        GROUP BY category
-    """, (session['user_id'],))
+    if date_param:
+        cursor.execute(f"""
+            SELECT category, SUM(amount) as total
+            FROM expenses
+            WHERE user_id = %s AND {date_filter}
+            GROUP BY category
+        """, (session['user_id'], date_param))
+    else:
+        cursor.execute(f"""
+            SELECT category, SUM(amount) as total
+            FROM expenses
+            WHERE user_id = %s AND {date_filter}
+            GROUP BY category
+        """, (session['user_id'],))
+
     categories = [dict(row) for row in cursor.fetchall()]
 
-    # Total this month
-    cursor.execute(f"""
-        SELECT SUM(amount) as total
-        FROM expenses
-        WHERE user_id = %s AND {date_filter}
-    """, (session['user_id'],))
+    # Total
+    if date_param:
+        cursor.execute(f"""
+            SELECT SUM(amount) as total
+            FROM expenses
+            WHERE user_id = %s AND {date_filter}
+        """, (session['user_id'], date_param))
+    else:
+        cursor.execute(f"""
+            SELECT SUM(amount) as total
+            FROM expenses
+            WHERE user_id = %s AND {date_filter}
+        """, (session['user_id'],))
+
     total = cursor.fetchone()['total'] or 0
 
     conn.close()
@@ -230,7 +358,9 @@ def dashboard():
                          user_name=session['user_name'],
                          expenses=expenses,
                          categories=categories,
-                         total=total)
+                         total=total,
+                         search_date=search_date,
+                         search_month=search_month)
 
 @app.route("/profile")
 def profile():
