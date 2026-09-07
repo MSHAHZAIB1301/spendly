@@ -416,31 +416,6 @@ def add_expense():
         conn.commit()
         conn.close()
 
-        # Send email notification (non-blocking - just log if fails)
-        user = get_user_by_id(session['user_id'])
-        if user:
-            try:
-                email_body = f"""
-                <html>
-                <body style="font-family: Arial, sans-serif;">
-                    <h2 style="color: #667eea;">New Expense Added! 💸</h2>
-                    <p>Hi {session['user_name']},</p>
-                    <p>Your expense has been recorded:</p>
-                    <table style="border-collapse: collapse; margin: 20px 0;">
-                        <tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>Amount:</strong></td><td style="padding: 8px; border: 1px solid #ddd;">Rs.{float(amount):.2f}</td></tr>
-                        <tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>Category:</strong></td><td style="padding: 8px; border: 1px solid #ddd;">{category}</td></tr>
-                        <tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>Description:</strong></td><td style="padding: 8px; border: 1px solid #ddd;">{description or '-'}</td></tr>
-                        <tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>Date:</strong></td><td style="padding: 8px; border: 1px solid #ddd;">{date}</td></tr>
-                    </table>
-                    <p>Keep tracking your expenses with <strong>Spendly</strong>!</p>
-                </body>
-                </html>
-                """
-                # Send email in background (don't wait)
-                send_email(user['email'], "New Expense Added - Spendly", email_body)
-            except Exception as e:
-                print(f"Email error (non-blocking): {e}")
-
         flash("Expense added!", "success")
         return redirect(url_for('dashboard'))
 
