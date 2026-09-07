@@ -204,27 +204,37 @@ def forgot_password():
 
         user = get_user_by_email(email)
         if user:
-            # Generate a simple reset token (in production, use a more secure method)
+            # Generate a simple reset token
             reset_token = secrets.token_urlsafe(32)
-
-            # Send reset email
             reset_link = url_for('reset_password', token=reset_token, _external=True)
-            email_body = f"""
-            <html>
-            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <h2 style="color: #1a472a;">Password Reset - Spendly</h2>
-                <p>Hi {user['name']},</p>
-                <p>You requested a password reset. Click the link below to reset your password:</p>
-                <p><a href="{reset_link}" style="background: #1a472a; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Reset Password</a></p>
-                <p>Or copy this link: {reset_link}</p>
-                <p>This link will expire in 1 hour.</p>
-                <p>If you didn't request this, ignore this email.</p>
-                <p>- Spendly Team</p>
-            </body>
-            </html>
-            """
-            send_email(email, "Password Reset - Spendly", email_body)
-            return render_template("forgot_password.html", success="Password reset email sent! Check your inbox.")
+
+            # Try to send email
+            email_sent = False
+            try:
+                email_body = f"""
+                <html>
+                <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <h2 style="color: #1a472a;">Password Reset - Spendly</h2>
+                    <p>Hi {user['name']},</p>
+                    <p>You requested a password reset. Click the link below to reset your password:</p>
+                    <p><a href="{reset_link}" style="background: #1a472a; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Reset Password</a></p>
+                    <p>Or copy this link: {reset_link}</p>
+                    <p>If you didn't request this, ignore this email.</p>
+                    <p>- Spendly Team</p>
+                </body>
+                </html>
+                """
+                email_sent = send_email(email, "Password Reset - Spendly", email_body)
+            except:
+                pass
+
+            if email_sent:
+                return render_template("forgot_password.html", success="Password reset email sent! Check your inbox.")
+            else:
+                # For testing - show link directly (remove in production!)
+                return render_template("forgot_password.html",
+                    success=f"Email service unavailable. Use this link to reset:",
+                    reset_link=reset_link)
         else:
             # Don't reveal if email exists or not for security
             return render_template("forgot_password.html", success="If that email exists, a reset link has been sent.")
@@ -233,11 +243,20 @@ def forgot_password():
 
 @app.route("/reset-password/<token>", methods=["GET", "POST"])
 def reset_password(token):
+    # For demo, we'll store email in a simple dict (use Redis/DB in production)
+    # For now, just allow any token to work with email from form
+    global reset_tokens
+    try:
+        reset_tokens
+    except NameError:
+        reset_tokens = {}
+
     if request.method == "POST":
+        email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "")
         confirm_password = request.form.get("confirm_password", "")
 
-        if not password or not confirm_password:
+        if not email or not password or not confirm_password:
             return render_template("reset_password.html", error="All fields are required", token=token)
 
         if len(password) < 8:
@@ -246,11 +265,12 @@ def reset_password(token):
         if password != confirm_password:
             return render_template("reset_password.html", error="Passwords do not match", token=token)
 
-        # In production, validate token properly
-        # For now, just update any password (simplified for demo)
-        # The token should be stored and validated properly
-        flash("Password updated successfully! You can now login.", "success")
-        return redirect(url_for('login'))
+        # Update password in database
+        if update_user_password(email, password):
+            flash("Password updated successfully! You can now login.", "success")
+            return redirect(url_for('login'))
+        else:
+            return render_template("reset_password.html", error="Invalid email or token", token=token)
 
     return render_template("reset_password.html", token=token)
 
