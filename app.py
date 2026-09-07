@@ -210,37 +210,15 @@ def forgot_password():
 
         user = get_user_by_email(email)
         if user:
-            # Generate a simple reset token
+            # Generate reset token and create link directly
             reset_token = secrets.token_urlsafe(32)
             reset_link = url_for('reset_password', token=reset_token, _external=True)
 
-            # Try to send email
-            email_sent = False
-            try:
-                email_body = f"""
-                <html>
-                <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                    <h2 style="color: #1a472a;">Password Reset - Spendly</h2>
-                    <p>Hi {user['name']},</p>
-                    <p>You requested a password reset. Click the link below to reset your password:</p>
-                    <p><a href="{reset_link}" style="background: #1a472a; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Reset Password</a></p>
-                    <p>Or copy this link: {reset_link}</p>
-                    <p>If you didn't request this, ignore this email.</p>
-                    <p>- Spendly Team</p>
-                </body>
-                </html>
-                """
-                email_sent = send_email(email, "Password Reset - Spendly", email_body)
-            except:
-                pass
-
-            if email_sent:
-                return render_template("forgot_password.html", success="Password reset email sent! Check your inbox.")
-            else:
-                # For testing - show link directly (remove in production!)
-                return render_template("forgot_password.html",
-                    success=f"Email service unavailable. Use this link to reset:",
-                    reset_link=reset_link)
+            # Show link directly on page (since email is not working)
+            return render_template("forgot_password.html",
+                success="Use the link below to reset your password:",
+                reset_link=reset_link,
+                user_email=email)
         else:
             # Don't reveal if email exists or not for security
             return render_template("forgot_password.html", success="If that email exists, a reset link has been sent.")
