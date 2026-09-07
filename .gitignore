@@ -1,1 +1,8 @@
+__pycache__/
+*.pyc
+venv/
 *.db
+.env
+.DS_Store
+expense-tracker/
+__MACOSX/
