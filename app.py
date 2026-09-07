@@ -195,7 +195,7 @@ def dashboard():
 
     # Build date filter based on database type
     if is_postgres_available():
-        date_filter = "TO_CHAR(date, 'YYYY-MM') = TO_CHAR(CURRENT_DATE, 'YYYY-MM')"
+        date_filter = "TO_CHAR(date::timestamp, 'YYYY-MM') = TO_CHAR(CURRENT_DATE, 'YYYY-MM')"
     else:
         date_filter = "strftime('%Y-%m', date) = strftime('%Y-%m', 'now')"
 
