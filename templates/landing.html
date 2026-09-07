@@ -89,4 +89,13 @@
     </div>
 </section>
 
+<script>
+// Force clear session on landing page load - ensures fresh login on app reopen
+(function() {
+    fetch("{{ url_for('logout') }}", { method: 'GET' }).then(() => {
+        // Session cleared, page will redirect to landing
+    });
+})();
+</script>
+
 {% endblock %}
