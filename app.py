@@ -406,7 +406,7 @@ def add_expense():
                 <p>Hi {session['user_name']},</p>
                 <p>Your expense has been recorded:</p>
                 <table style="border-collapse: collapse; margin: 20px 0;">
-                    <tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>Amount:</strong></td><td style="padding: 8px; border: 1px solid #ddd;">₹{float(amount):.2f}</td></tr>
+                    <tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>Amount:</strong></td><td style="padding: 8px; border: 1px solid #ddd;">Rs.{float(amount):.2f}</td></tr>
                     <tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>Category:</strong></td><td style="padding: 8px; border: 1px solid #ddd;">{category}</td></tr>
                     <tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>Description:</strong></td><td style="padding: 8px; border: 1px solid #ddd;">{description or '-'}</td></tr>
                     <tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>Date:</strong></td><td style="padding: 8px; border: 1px solid #ddd;">{date}</td></tr>
