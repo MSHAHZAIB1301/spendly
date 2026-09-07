@@ -154,6 +154,11 @@ def landing():
         return redirect(url_for('dashboard'))
     return render_template("landing.html")
 
+@app.route("/home")
+def home():
+    # Always show landing page, no session check
+    return render_template("landing.html")
+
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if 'user_id' in session:
