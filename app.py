@@ -150,8 +150,7 @@ def update_user_password(email, new_password):
 
 @app.route("/")
 def landing():
-    if 'user_id' in session:
-        return redirect(url_for('dashboard'))
+    # Always show landing page, regardless of login status
     return render_template("landing.html")
 
 @app.route("/home")
