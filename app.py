@@ -17,14 +17,12 @@ app = Flask(__name__)
 # If not set, use a development key (sessions won't persist across restarts)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 
-# Session configuration - signed cookies (stored in browser, not server)
+# Session configuration - session cookies (lost when browser closes)
 app.config['SESSION_TYPE'] = 'cookie'
-app.config['SESSION_PERMANENT'] = True
-app.config['PERMANENT_SESSION_LIFETIME'] = 86400 * 7  # 7 days
+app.config['SESSION_PERMANENT'] = False  # Session cookie - lost when browser closes
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_SECURE'] = False  # Set True only with HTTPS
-app.config['SESSION_KEY_PREFIX'] = 'spendly_'  # Prefix for session cookie
 
 # ------------------------------------------------------------------ #
 # Email Configuration                                                  #
@@ -178,7 +176,7 @@ def register():
 
         session['user_id'] = user_id
         session['user_name'] = name
-        session.permanent = True  # Session lasts across browser restarts
+        # Session lasts only while browser is open (in-memory)
         flash("Account created successfully!", "success")
         return redirect(url_for('dashboard'))
 
@@ -199,7 +197,7 @@ def login():
 
         session['user_id'] = user['id']
         session['user_name'] = user['name']
-        session.permanent = True  # Session lasts across browser restarts
+        # Session lasts only while browser is open (in-memory)
         flash("Welcome back!", "success")
         return redirect(url_for('dashboard'))
 
