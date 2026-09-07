@@ -36,13 +36,13 @@
     <div class="search-section">
         <form method="GET" action="{{ url_for('dashboard') }}" class="search-form">
             <div class="search-row">
-                <div class="search-group">
-                    <label for="search_date">Search by Date</label>
-                    <input type="date" id="search_date" name="search_date" value="{{ search_date }}" class="form-input">
-                </div>
-                <div class="search-group">
-                    <label for="search_month">Search by Month</label>
-                    <input type="month" id="search_month" name="search_month" value="{{ search_month }}" class="form-input">
+                <div class="search-group date-boxes">
+                    <label>Search by Date</label>
+                    <div class="date-inputs">
+                        <input type="number" id="search_day" name="search_day" min="1" max="31" placeholder="DD" class="form-input date-input">
+                        <input type="number" id="search_month" name="search_month" min="1" max="12" placeholder="MM" class="form-input date-input">
+                        <input type="number" id="search_year" name="search_year" min="2000" max="2100" placeholder="YYYY" class="form-input date-input year-input">
+                    </div>
                 </div>
                 <div class="search-actions">
                     <button type="submit" class="btn-search">Search</button>
@@ -50,11 +50,9 @@
                 </div>
             </div>
         </form>
-        {% if search_date or search_month %}
+        {% if search_day and search_month and search_year %}
         <p class="search-result-text">
-            Showing results for:
-            {% if search_date %}Date: {{ search_date }}{% endif %}
-            {% if search_month %}Month: {{ search_month }}{% endif %}
+            Showing results for: {{ search_day }}/{{ search_month }}/{{ search_year }}
         </p>
         {% endif %}
     </div>
@@ -151,11 +149,17 @@
 .btn-clear:hover { color: #333; }
 .search-result-text { margin-top: 10px; font-size: 0.85rem; color: #666; }
 
+/* Date Input Boxes */
+.date-inputs { display: flex; gap: 8px; }
+.date-input { width: 60px !important; text-align: center; padding: 8px 5px !important; font-size: 0.95rem !important; }
+.year-input { width: 80px !important; }
+
 @media (max-width: 600px) {
     .search-row { flex-direction: column; }
     .search-group { min-width: 100%; }
     .dashboard-header { flex-direction: column; gap: 1rem; align-items: stretch; }
     .header-actions { justify-content: space-between; }
+    .date-inputs { justify-content: center; }
 }
 </style>
 {% endblock %}

@@ -270,27 +270,40 @@ def dashboard():
         session.clear()
         return redirect(url_for('login'))
 
-    # Check for search query
-    search_date = request.args.get('search_date', '')
+    # Check for search query (day, month, year)
+    search_day = request.args.get('search_day', '')
     search_month = request.args.get('search_month', '')
+    search_year = request.args.get('search_year', '')
 
     conn = get_db()
     cursor = conn.cursor()
 
     # Build date filter based on search or default to current month
-    if search_date:
+    if search_day and search_month and search_year:
+        # Full date search - format as YYYY-MM-DD
+        search_date = f"{search_year}-{search_month.zfill(2)}-{search_day.zfill(2)}"
         if is_postgres_available():
-            date_filter = "date::timestamp = timestamp %s"
+            date_filter = "date::timestamp = %s::timestamp"
         else:
             date_filter = "date = %s"
         date_param = search_date
-    elif search_month:
+    elif search_month and search_year:
+        # Month + Year search
+        search_month_formatted = f"{search_year}-{search_month.zfill(2)}"
         if is_postgres_available():
             date_filter = "TO_CHAR(date::timestamp, 'YYYY-MM') = %s"
         else:
             date_filter = "strftime('%Y-%m', date) = %s"
-        date_param = search_month
+        date_param = search_month_formatted
+    elif search_year:
+        # Year only search
+        if is_postgres_available():
+            date_filter = "TO_CHAR(date::timestamp, 'YYYY') = %s"
+        else:
+            date_filter = "strftime('%Y', date) = %s"
+        date_param = search_year
     else:
+        # Default - current month
         if is_postgres_available():
             date_filter = "TO_CHAR(date::timestamp, 'YYYY-MM') = TO_CHAR(CURRENT_DATE, 'YYYY-MM')"
         else:
@@ -354,8 +367,9 @@ def dashboard():
                          expenses=expenses,
                          categories=categories,
                          total=total,
-                         search_date=search_date,
-                         search_month=search_month)
+                         search_day=search_day,
+                         search_month=search_month,
+                         search_year=search_year)
 
 @app.route("/profile")
 def profile():
