@@ -5,7 +5,7 @@ import smtplib
 import os
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from datetime import datetime, timedelta
+from datetime import datetime
 import traceback
 
 # Import database functions
@@ -14,11 +14,8 @@ from database.db import get_db, init_db, is_postgres_available
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(32)
 
-# Session configuration - persistent sessions
-app.config['SESSION_TYPE'] = 'filesystem'
-app.config['SESSION_PERMANENT'] = True
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
-app.config['SESSION_USE_SIGNER'] = True
+# Session configuration - browser session only (expires when browser closes)
+# Default Flask sessions are already browser-session based
 
 # ------------------------------------------------------------------ #
 # Email Configuration                                                  #
@@ -170,7 +167,6 @@ def register():
         if user_id is None:
             return render_template("register.html", error="Email already registered or database error")
 
-        session.permanent = True
         session['user_id'] = user_id
         session['user_name'] = name
         flash("Account created successfully!", "success")
@@ -191,7 +187,6 @@ def login():
         if user is None:
             return render_template("login.html", error="Invalid email or password")
 
-        session.permanent = True
         session['user_id'] = user['id']
         session['user_name'] = user['name']
         flash("Welcome back!", "success")
