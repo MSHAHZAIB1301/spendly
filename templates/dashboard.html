@@ -57,6 +57,27 @@
         {% endif %}
     </div>
 
+    <!-- Delete Options Section -->
+    <div class="delete-section">
+        <div class="delete-row">
+            <!-- Clear All Expenses -->
+            <form action="{{ url_for('delete_all_expenses') }}" method="POST" class="delete-form" onsubmit="return confirm('⚠️ Delete ALL expenses? This cannot be undone!');">
+                <button type="submit" class="btn-danger">🗑️ Clear All Expenses</button>
+            </form>
+
+            <!-- Delete by Specific Date -->
+            <form action="{{ url_for('delete_expenses_by_date') }}" method="POST" class="delete-form date-delete-form">
+                <label>Delete by Date:</label>
+                <div class="date-inputs">
+                    <input type="number" name="delete_day" min="1" max="31" placeholder="DD" class="form-input date-input">
+                    <input type="number" name="delete_month" min="1" max="12" placeholder="MM" class="form-input date-input">
+                    <input type="number" name="delete_year" min="2000" max="2100" placeholder="YYYY" class="form-input date-input year-input">
+                </div>
+                <button type="submit" class="btn-danger btn-small" onclick="return confirm('⚠️ Delete all expenses for this date? This cannot be undone!');">Delete</button>
+            </form>
+        </div>
+    </div>
+
     <div class="summary-cards">
         <div class="summary-card">
             <h3>{% if search_date or search_month %}Filtered Total{% else %}This Month{% endif %}</h3>
@@ -134,6 +155,7 @@
 .btn-delete { background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
 .flash-success { background: #d4edda; color: #155724; padding: 10px; border-radius: 4px; margin-bottom: 20px; }
 .flash-error { background: #f8d7da; color: #721c24; padding: 10px; border-radius: 4px; margin-bottom: 20px; }
+.flash-info { background: #cce5ff; color: #004085; padding: 10px; border-radius: 4px; margin-bottom: 20px; }
 .empty-state { color: #666; text-align: center; padding: 20px; }
 
 /* Search Section */
@@ -160,6 +182,22 @@
     .dashboard-header { flex-direction: column; gap: 1rem; align-items: stretch; }
     .header-actions { justify-content: space-between; }
     .date-inputs { justify-content: center; }
+}
+
+/* Delete Section */
+.delete-section { background: #fff3f3; border: 2px solid #dc3545; border-radius: 12px; padding: 15px 20px; margin-bottom: 20px; }
+.delete-row { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
+.delete-form { display: flex; align-items: center; gap: 10px; }
+.delete-form label { font-weight: 500; color: #721c24; font-size: 0.9rem; }
+.btn-danger { background: #dc3545; color: white; border: none; padding: 10px 16px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 500; }
+.btn-danger:hover { background: #c82333; }
+.btn-small { padding: 6px 12px; font-size: 0.85rem; }
+.date-delete-form { background: #fff; padding: 10px 15px; border-radius: 8px; border: 1px solid #f5c6cb; }
+
+@media (max-width: 600px) {
+    .delete-row { flex-direction: column; align-items: stretch; }
+    .date-delete-form { flex-direction: column; align-items: stretch; }
+    .date-delete-form .date-inputs { justify-content: center; }
 }
 </style>
 {% endblock %}

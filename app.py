@@ -472,6 +472,63 @@ def delete_expense(id):
     flash("Expense deleted", "info")
     return redirect(url_for('dashboard'))
 
+@app.route("/expenses/delete-all", methods=["POST"])
+def delete_all_expenses():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM expenses WHERE user_id = %s", (session['user_id'],))
+    conn.commit()
+    conn.close()
+
+    flash("All expenses deleted", "info")
+    return redirect(url_for('dashboard'))
+
+@app.route("/expenses/delete-by-date", methods=["POST"])
+def delete_expenses_by_date():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    delete_date = request.form.get('delete_date', '')
+    delete_day = request.form.get('delete_day', '')
+    delete_month = request.form.get('delete_month', '')
+    delete_year = request.form.get('delete_year', '')
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    if delete_date:
+        # Delete specific date
+        cursor.execute("DELETE FROM expenses WHERE user_id = %s AND date = %s",
+                       (session['user_id'], delete_date))
+        flash(f"Expenses for {delete_date} deleted", "info")
+    elif delete_day and delete_month and delete_year:
+        # Delete by day/month/year
+        date_str = f"{delete_year}-{delete_month.zfill(2)}-{delete_day.zfill(2)}"
+        cursor.execute("DELETE FROM expenses WHERE user_id = %s AND date = %s",
+                       (session['user_id'], date_str))
+        flash(f"Expenses for {date_str} deleted", "info")
+    elif delete_month and delete_year:
+        # Delete by month
+        month_str = f"{delete_year}-{delete_month.zfill(2)}"
+        if is_postgres_available():
+            cursor.execute("""
+                DELETE FROM expenses
+                WHERE user_id = %s AND TO_CHAR(date::timestamp, 'YYYY-MM') = %s
+            """, (session['user_id'], month_str))
+        else:
+            cursor.execute("""
+                DELETE FROM expenses
+                WHERE user_id = %s AND strftime('%%Y-%%m', date) = %s
+            """, (session['user_id'], month_str))
+        flash(f"Expenses for {delete_month}/{delete_year} deleted", "info")
+
+    conn.commit()
+    conn.close()
+    return redirect(url_for('dashboard'))
+
 # ------------------------------------------------------------------ #
 # Init                                                                 #
 # ------------------------------------------------------------------ #
