@@ -24,6 +24,7 @@ app.config['PERMANENT_SESSION_LIFETIME'] = 86400 * 7  # 7 days
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_SECURE'] = False  # Set True only with HTTPS
+app.config['SESSION_KEY_PREFIX'] = 'spendly_'  # Prefix for session cookie
 
 # ------------------------------------------------------------------ #
 # Email Configuration                                                  #
