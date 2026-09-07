@@ -1,11 +1,14 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
-import sqlite3
 import hashlib
 import secrets
 import smtplib
+import os
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime
+
+# Import database functions
+from database.db import get_db, init_db
 
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(32)
@@ -14,8 +17,8 @@ app.secret_key = secrets.token_hex(32)
 # Email Configuration                                                  #
 # ------------------------------------------------------------------ #
 
-SMTP_EMAIL = "mhamza4073@gmail.com"  # Your Gmail
-SMTP_PASSWORD = "xmsu jemc qtmk zptd"    # Replace with Gmail App Password
+SMTP_EMAIL = os.environ.get('SMTP_EMAIL', 'mhamza4073@gmail.com')
+SMTP_PASSWORD = os.environ.get('SMTP_PASSWORD', 'xmsu jemc qtmk zptd')
 SMTP_HOST = "smtp.gmail.com"
 SMTP_PORT = 587
 
@@ -37,48 +40,6 @@ def send_email(to_email, subject, body):
         return False
 
 # ------------------------------------------------------------------ #
-# Database                                                             #
-# ------------------------------------------------------------------ #
-
-DATABASE = "expense_tracker.db"
-
-def get_db():
-    conn = sqlite3.connect(DATABASE)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    return conn
-
-def init_db():
-    conn = get_db()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            email TEXT UNIQUE NOT NULL,
-            password_hash TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS expenses (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            amount REAL NOT NULL,
-            category TEXT NOT NULL,
-            description TEXT,
-            date TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-        )
-    """)
-
-    conn.commit()
-    conn.close()
-
-# ------------------------------------------------------------------ #
 # Auth helpers                                                         #
 # ------------------------------------------------------------------ #
 
@@ -88,7 +49,7 @@ def hash_password(password):
 def get_user_by_email(email):
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
+    cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
     user = cursor.fetchone()
     conn.close()
     return dict(user) if user else None
@@ -96,7 +57,7 @@ def get_user_by_email(email):
 def get_user_by_id(user_id):
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+    cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))
     user = cursor.fetchone()
     conn.close()
     return dict(user) if user else None
@@ -106,14 +67,14 @@ def create_user(name, email, password):
     cursor = conn.cursor()
     try:
         cursor.execute(
-            "INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)",
+            "INSERT INTO users (name, email, password_hash) VALUES (%s, %s, %s)",
             (name, email, hash_password(password))
         )
         conn.commit()
         user_id = cursor.lastrowid
         conn.close()
         return user_id
-    except sqlite3.IntegrityError:
+    except Exception:
         conn.close()
         return None
 
@@ -198,7 +159,7 @@ def dashboard():
     # Get expenses for current month
     cursor.execute("""
         SELECT * FROM expenses
-        WHERE user_id = ? AND strftime('%Y-%m', date) = strftime('%Y-%m', 'now')
+        WHERE user_id = %s AND strftime('%%Y-%%m', date) = strftime('%%Y-%%m', 'now')
         ORDER BY date DESC
     """, (session['user_id'],))
     expenses = [dict(row) for row in cursor.fetchall()]
@@ -207,7 +168,7 @@ def dashboard():
     cursor.execute("""
         SELECT category, SUM(amount) as total
         FROM expenses
-        WHERE user_id = ? AND strftime('%Y-%m', date) = strftime('%Y-%m', 'now')
+        WHERE user_id = %s AND strftime('%%Y-%%m', date) = strftime('%%Y-%%m', 'now')
         GROUP BY category
     """, (session['user_id'],))
     categories = [dict(row) for row in cursor.fetchall()]
@@ -216,7 +177,7 @@ def dashboard():
     cursor.execute("""
         SELECT SUM(amount) as total
         FROM expenses
-        WHERE user_id = ? AND strftime('%Y-%m', date) = strftime('%Y-%m', 'now')
+        WHERE user_id = %s AND strftime('%%Y-%%m', date) = strftime('%%Y-%%m', 'now')
     """, (session['user_id'],))
     total = cursor.fetchone()['total'] or 0
 
@@ -257,7 +218,7 @@ def add_expense():
         conn = get_db()
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT INTO expenses (user_id, amount, category, description, date) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO expenses (user_id, amount, category, description, date) VALUES (%s, %s, %s, %s, %s)",
             (session['user_id'], float(amount), category, description, date)
         )
         conn.commit()
@@ -296,7 +257,7 @@ def edit_expense(id):
 
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM expenses WHERE id = ? AND user_id = ?", (id, session['user_id']))
+    cursor.execute("SELECT * FROM expenses WHERE id = %s AND user_id = %s", (id, session['user_id']))
     expense = cursor.fetchone()
     conn.close()
 
@@ -315,7 +276,7 @@ def edit_expense(id):
         conn = get_db()
         cursor = conn.cursor()
         cursor.execute(
-            "UPDATE expenses SET amount = ?, category = ?, description = ?, date = ? WHERE id = ?",
+            "UPDATE expenses SET amount = %s, category = %s, description = %s, date = %s WHERE id = %s",
             (float(amount), category, description, date, id)
         )
         conn.commit()
@@ -333,7 +294,7 @@ def delete_expense(id):
 
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM expenses WHERE id = ? AND user_id = ?", (id, session['user_id']))
+    cursor.execute("DELETE FROM expenses WHERE id = %s AND user_id = %s", (id, session['user_id']))
     conn.commit()
     conn.close()
 
