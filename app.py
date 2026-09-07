@@ -6,6 +6,7 @@ import os
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime
+import traceback
 
 # Import database functions
 from database.db import get_db, init_db, is_postgres_available
@@ -47,50 +48,74 @@ def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
 
 def get_user_by_email(email):
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
-    user = cursor.fetchone()
-    conn.close()
-    return dict(user) if user else None
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
+        user = cursor.fetchone()
+        conn.close()
+        if user:
+            return dict(user)
+        return None
+    except Exception as e:
+        print(f"Error in get_user_by_email: {e}")
+        traceback.print_exc()
+        return None
 
 def get_user_by_id(user_id):
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))
-    user = cursor.fetchone()
-    conn.close()
-    return dict(user) if user else None
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))
+        user = cursor.fetchone()
+        conn.close()
+        if user:
+            return dict(user)
+        return None
+    except Exception as e:
+        print(f"Error in get_user_by_id: {e}")
+        traceback.print_exc()
+        return None
 
 def create_user(name, email, password):
-    conn = get_db()
-    cursor = conn.cursor()
     try:
-        # Use RETURNING id for PostgreSQL to get the inserted user id
+        conn = get_db()
+        cursor = conn.cursor()
+
         if is_postgres_available():
             cursor.execute(
                 "INSERT INTO users (name, email, password_hash) VALUES (%s, %s, %s) RETURNING id",
                 (name, email, hash_password(password))
             )
-            user_id = cursor.fetchone()['id']
+            result = cursor.fetchone()
+            user_id = result['id'] if result else None
         else:
             cursor.execute(
                 "INSERT INTO users (name, email, password_hash) VALUES (%s, %s, %s)",
                 (name, email, hash_password(password))
             )
             user_id = cursor.lastrowid
+
         conn.commit()
         conn.close()
         return user_id
-    except Exception:
-        conn.close()
+    except Exception as e:
+        print(f"Error in create_user: {e}")
+        traceback.print_exc()
+        if conn:
+            conn.close()
         return None
 
 def verify_login(email, password):
-    user = get_user_by_email(email)
-    if user and user['password_hash'] == hash_password(password):
-        return user
-    return None
+    try:
+        user = get_user_by_email(email)
+        if user and user['password_hash'] == hash_password(password):
+            return user
+        return None
+    except Exception as e:
+        print(f"Error in verify_login: {e}")
+        traceback.print_exc()
+        return None
 
 # ------------------------------------------------------------------ #
 # Routes                                                               #
@@ -120,7 +145,7 @@ def register():
 
         user_id = create_user(name, email, password)
         if user_id is None:
-            return render_template("register.html", error="Email already registered")
+            return render_template("register.html", error="Email already registered or database error")
 
         session['user_id'] = user_id
         session['user_name'] = name
@@ -161,15 +186,17 @@ def dashboard():
         return redirect(url_for('login'))
 
     user = get_user_by_id(session['user_id'])
+    if user is None:
+        session.clear()
+        return redirect(url_for('login'))
+
     conn = get_db()
     cursor = conn.cursor()
 
     # Build date filter based on database type
     if is_postgres_available():
-        # PostgreSQL syntax
         date_filter = "TO_CHAR(date, 'YYYY-MM') = TO_CHAR(CURRENT_DATE, 'YYYY-MM')"
     else:
-        # SQLite syntax
         date_filter = "strftime('%Y-%m', date) = strftime('%Y-%m', 'now')"
 
     # Get expenses for current month
@@ -211,6 +238,10 @@ def profile():
         return redirect(url_for('login'))
 
     user = get_user_by_id(session['user_id'])
+    if user is None:
+        session.clear()
+        return redirect(url_for('login'))
+
     return render_template("profile.html", user=user)
 
 # ------------------------------------------------------------------ #
