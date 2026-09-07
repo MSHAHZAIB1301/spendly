@@ -90,12 +90,13 @@
 </section>
 
 <script>
-// Force clear session on landing page load - ensures fresh login on app reopen
-(function() {
-    fetch("{{ url_for('logout') }}", { method: 'GET' }).then(() => {
-        // Session cleared, page will redirect to landing
-    });
-})();
+// Detect fresh app open vs tab restoration
+window.addEventListener('pageshow', function(event) {
+    // If page is being restored from bfcache (back-forward cache), force logout
+    if (event.persisted) {
+        fetch("{{ url_for('logout') }}", { method: 'GET' });
+    }
+});
 </script>
 
 {% endblock %}
